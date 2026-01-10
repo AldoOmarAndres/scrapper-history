@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from typing import Dict, Any, Optional
 from datetime import datetime
+from urllib.parse import urlparse
 from app.core.config import settings
 
 
@@ -27,6 +28,59 @@ class Scraper:
         self.headers = {
             "User-Agent": self.user_agent
         }
+        # Blocked hosts to prevent SSRF attacks
+        self.blocked_hosts = {
+            "localhost", "127.0.0.1", "0.0.0.0", "::1",
+            "169.254.169.254",  # AWS metadata service
+            "metadata.google.internal",  # GCP metadata service
+        }
+    
+    def _validate_url(self, url: str) -> bool:
+        """
+        Validate URL to prevent SSRF attacks
+        
+        Args:
+            url: The URL to validate
+            
+        Returns:
+            True if URL is safe, False otherwise
+        """
+        try:
+            parsed = urlparse(url)
+            
+            # Only allow http and https schemes
+            if parsed.scheme not in ("http", "https"):
+                return False
+            
+            # Check for blocked hosts (case-insensitive)
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+            
+            hostname_lower = hostname.lower()
+            
+            # Block local/internal addresses
+            if hostname_lower in self.blocked_hosts:
+                return False
+            
+            # Block private IP ranges
+            if hostname_lower.startswith("10.") or \
+               hostname_lower.startswith("192.168.") or \
+               hostname_lower.startswith("172."):
+                # Check if it's in private range 172.16.0.0 - 172.31.255.255
+                if hostname_lower.startswith("172."):
+                    parts = hostname_lower.split(".")
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        second_octet = int(parts[1])
+                        if 16 <= second_octet <= 31:
+                            return False
+                else:
+                    return False
+            
+            return True
+            
+        except Exception:
+            return False
     
     def scrape_url(self, url: str) -> Dict[str, Any]:
         """
@@ -38,6 +92,15 @@ class Scraper:
         Returns:
             Dictionary containing scraped data
         """
+        # Validate URL to prevent SSRF
+        if not self._validate_url(url):
+            return {
+                "url": url,
+                "error": "Invalid or blocked URL",
+                "scraped_at": datetime.utcnow().isoformat(),
+                "success": False
+            }
+        
         try:
             response = requests.get(url, headers=self.headers, timeout=self.timeout)
             response.raise_for_status()
@@ -83,6 +146,15 @@ class Scraper:
         Returns:
             Dictionary containing extracted data
         """
+        # Validate URL to prevent SSRF
+        if not self._validate_url(url):
+            return {
+                "url": url,
+                "error": "Invalid or blocked URL",
+                "scraped_at": datetime.utcnow().isoformat(),
+                "success": False
+            }
+        
         try:
             response = requests.get(url, headers=self.headers, timeout=self.timeout)
             response.raise_for_status()
