@@ -1,34 +1,24 @@
-"""
-FastAPI Application Entry Point
-
-This module initializes the FastAPI application and includes API routes.
-"""
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from app.api.endpoints import router
-from app.core.config import settings
+import os
 
-app = FastAPI(
-    title="Scraper History API",
-    description="API for managing and accessing historical scraper data",
-    version="0.1.0"
-)
+app = FastAPI(title="Monitor de Tasas")
 
-# Include API routes
-app.include_router(router, prefix="/api", tags=["scraper"])
+# Configurar carpeta de templates
+# Usamos una ruta absoluta para evitar errores de "directory not found"
+base_dir = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 
+# Incluir tus rutas de API
+app.include_router(router)
 
-@app.get("/")
-async def root():
-    """Root endpoint to check API status"""
-    return {
-        "message": "Scraper History API",
-        "version": "0.1.0",
-        "status": "running"
-    }
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    """Renderiza el dashboard principal"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

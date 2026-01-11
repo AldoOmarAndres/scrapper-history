@@ -1,6 +1,6 @@
 # Scrapper History
 
-A FastAPI-based web scraper with Redis storage for managing and accessing historical scraping data.
+A FastAPI-based web for financial history with Redis storage for managing and accessing historical scraping data.
 
 ## Project Structure
 
@@ -78,45 +78,6 @@ Once the server is running, visit:
 - `GET /health` - Application health check
 - `GET /api/health` - API and Redis health check
 
-### Scraping
-- `POST /api/scrape` - Scrape a URL and optionally store the result
-  ```json
-  {
-    "url": "https://example.com",
-    "store": true
-  }
-  ```
-
-### History Management
-- `GET /api/history/{url}?limit=10` - Get scrape history for a URL
-- `GET /api/latest/{url}` - Get the most recent scrape for a URL
-- `GET /api/urls` - List all tracked URLs
-- `DELETE /api/history/{url}` - Delete all history for a URL
-
-## Usage Examples
-
-### Scrape a URL
-```bash
-curl -X POST "http://localhost:8000/api/scrape" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "store": true}'
-```
-
-### Get Scrape History
-```bash
-curl "http://localhost:8000/api/history/https://example.com?limit=5"
-```
-
-### Get Latest Scrape
-```bash
-curl "http://localhost:8000/api/latest/https://example.com"
-```
-
-### List All Tracked URLs
-```bash
-curl "http://localhost:8000/api/urls"
-```
-
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -129,12 +90,6 @@ curl "http://localhost:8000/api/urls"
 | `SCHEDULER_INTERVAL` | Scraping interval in seconds | `3600` |
 
 ## Development
-
-### Running Tests
-```bash
-# Add tests in a tests/ directory
-pytest
-```
 
 ### Code Style
 ```bash

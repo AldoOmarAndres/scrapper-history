@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolución de Tasas</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        #chart { width: 100%; height: 500px; }
+        .btn-refresh { display: block; margin: 20px auto; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-refresh:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Evolución Tasa Tomadora</h1>
+        <label for="plazo-filter">Filtrar por plazo:</label>
+        <select id="plazo-filter" onchange="fetchData()"></select>
+        <div id="chart"></div>
+        <button class="btn-refresh" onclick="fetchData()">Actualizar Datos</button>
+    </div>
+
+    <script>
+        let allData = [];
+
+        async function fetchData() {
+            try {
+                // Llamamos a tu API
+                const response = await fetch('/test-scraping');
+                const result = await response.json();
+
+                if (result.status !== 'success') {
+                    alert("Error obteniendo datos: " + result.message);
+                    return;
+                }
+
+                allData = result.data;
+
+                // Actualizar opciones de filtro de plazo y setear el valor por defecto si es necesario
+                const plazoSeleccionado = updatePlazoFilter(allData);
+
+                // Obtener el plazo seleccionado
+                const select = document.getElementById('plazo-filter');
+                let selectedPlazo = select.value;
+                // Si no hay valor seleccionado (primera carga), usar el primer plazo
+                if (!selectedPlazo && plazoSeleccionado) {
+                    selectedPlazo = plazoSeleccionado;
+                    select.value = plazoSeleccionado;
+                }
+
+                // Filtrar los datos por plazo seleccionado
+                let filteredData = allData.filter(item => item.plazo === selectedPlazo);
+
+                // Preparamos los arrays para Plotly
+                const dates = filteredData.map(item => item.fecha_hora_web);
+                const rates = filteredData.map(item => item.tasa_tomadora);
+                const plazos = filteredData.map(item => item.plazo); // Para el tooltip
+
+                // Configuración del trazo
+                const trace = {
+                    x: dates,
+                    y: rates,
+                    text: plazos, // Info extra al pasar el mouse
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Tasa Tomadora',
+                    line: { shape: 'spline', color: '#17BECF' }
+                };
+
+                const layout = {
+                    title: 'Histórico de Tasas',
+                    xaxis: { title: 'Fecha / Hora' },
+                    yaxis: { title: 'Tasa (%)' }
+                };
+
+                Plotly.newPlot('chart', [trace], layout);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert("Error de conexión con el backend.");
+            }
+        }
+
+        function updatePlazoFilter(data) {
+            const select = document.getElementById('plazo-filter');
+            // Guardar el valor actual para mantenerlo tras recarga
+            const currentValue = select.value;
+            // Limpiar opciones
+            select.innerHTML = '';
+            // Obtener plazos únicos
+            const plazosUnicos = [...new Set(data.map(item => item.plazo))];
+            plazosUnicos.forEach((plazo, idx) => {
+                const option = document.createElement('option');
+                option.value = plazo;
+                option.textContent = plazo;
+                select.appendChild(option);
+            });
+            // Restaurar selección si existe, si no, devolver el primer plazo
+            if (plazosUnicos.length > 0) {
+                if (plazosUnicos.includes(currentValue)) {
+                    select.value = currentValue;
+                    return currentValue;
+                } else {
+                    select.value = plazosUnicos[0];
+                    return plazosUnicos[0];
+                }
+            }
+            return null;
+        }
+
+        // Cargar gráfica al iniciar
+        fetchData();
+    </script>
+</body>
+</html>

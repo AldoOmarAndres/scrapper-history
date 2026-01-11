@@ -1,185 +1,90 @@
-"""
-Web Scraper Service
-
-Contains pure BeautifulSoup logic for web scraping.
-"""
-
 import requests
 from bs4 import BeautifulSoup
-from typing import Dict, Any, Optional
+from pydantic import BaseModel, field_validator
 from datetime import datetime
-from urllib.parse import urlparse
-from app.core.config import settings
+from typing import List, Optional
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
-class Scraper:
-    """Web scraper using BeautifulSoup"""
+# --- CONFIGURACIÓN ---
+TARGET_URL = os.getenv("URL_TARGET") or ""
+
+# --- MODELO DE DATOS ---
+class RateRecord(BaseModel):
+    plazo: str
+    moneda: str
+    tasa_tomadora: float
+    fecha_hora_web: str
+    timestamp_scraped: datetime = datetime.now()
+
+    # Validador para convertir strings monetarios ("$ 1.500,00") a float (1500.00)
+    @field_validator("tasa_tomadora", mode='before')
+    @classmethod
+    def parse_float(cls, v):
+        if isinstance(v, str):
+            # 1. Eliminamos símbolos de moneda y porcentajes
+            clean = v.replace('$', '').replace('%', '').strip()
+            # Quitamos el punto de miles y cambiamos coma por punto decimal
+            clean = clean.replace('.', '', -1).replace(',', '.', -1).strip()
+            try:
+                return float(clean)
+            except ValueError:
+                return 0.0
+        return v
+
+# --- LÓGICA DE SCRAPING ---
+def run_scraping_logic() -> dict:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     
-    def __init__(self, user_agent: Optional[str] = None, timeout: Optional[int] = None):
-        """
-        Initialize the scraper
+    try:
+        response = requests.get(TARGET_URL, headers=headers, timeout=10)
+        response.raise_for_status() # Lanza error si es 404 o 500
         
-        Args:
-            user_agent: Custom user agent string
-            timeout: Request timeout in seconds
-        """
-        self.user_agent = user_agent or settings.scraper_user_agent
-        self.timeout = timeout or settings.scraper_timeout
-        self.headers = {
-            "User-Agent": self.user_agent
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # AJUSTA ESTE SELECTOR SEGÚN LA PÁGINA REAL
+        # Si no sabes el ID, usa 'table' para agarrar la primera tabla que encuentre
+        table = soup.select_one('table') 
+        
+        if not table:
+            return {"status": "error", "message": "No se encontró la tabla", "data": []}
+
+        extracted_data = []
+        rows = table.find_all('tr')
+
+        # Asumimos que la fila 0 es el header, iteramos desde la 1
+        for row in rows[1:]:
+            cols = row.find_all('td')
+            # Verificamos que tenga las 7 columnas que mencionaste
+            if len(cols) < 7:
+                continue
+
+            try:
+                plazo=cols[0].text.strip()
+                moneda = cols[1].text.strip()
+                # Arbitrary filter decision
+                if moneda != "PESOS" or int(plazo) > 30:
+                    continue
+                record = RateRecord(
+                    plazo=plazo,
+                    moneda=moneda,
+                    tasa_tomadora=cols[5].text.strip(),
+                    fecha_hora_web=cols[6].text.strip()
+                )
+                extracted_data.append(record.model_dump())
+            except Exception as e:
+                print(f"Error parseando fila: {e}")
+                continue
+
+        return {
+            "status": "success",
+            "total_records": len(extracted_data),
+            "data": extracted_data
         }
-        # Blocked hosts to prevent SSRF attacks
-        self.blocked_hosts = {
-            "localhost", "127.0.0.1", "0.0.0.0", "::1",
-            "169.254.169.254",  # AWS metadata service
-            "metadata.google.internal",  # GCP metadata service
-        }
-    
-    def _validate_url(self, url: str) -> bool:
-        """
-        Validate URL to prevent SSRF attacks
-        
-        Args:
-            url: The URL to validate
-            
-        Returns:
-            True if URL is safe, False otherwise
-        """
-        try:
-            parsed = urlparse(url)
-            
-            # Only allow http and https schemes
-            if parsed.scheme not in ("http", "https"):
-                return False
-            
-            # Check for blocked hosts (case-insensitive)
-            hostname = parsed.hostname
-            if not hostname:
-                return False
-            
-            hostname_lower = hostname.lower()
-            
-            # Block local/internal addresses
-            if hostname_lower in self.blocked_hosts:
-                return False
-            
-            # Block private IP ranges
-            if hostname_lower.startswith("10.") or \
-               hostname_lower.startswith("192.168.") or \
-               hostname_lower.startswith("172."):
-                # Check if it's in private range 172.16.0.0 - 172.31.255.255
-                if hostname_lower.startswith("172."):
-                    parts = hostname_lower.split(".")
-                    if len(parts) >= 2 and parts[1].isdigit():
-                        second_octet = int(parts[1])
-                        if 16 <= second_octet <= 31:
-                            return False
-                else:
-                    return False
-            
-            return True
-            
-        except Exception:
-            return False
-    
-    def scrape_url(self, url: str) -> Dict[str, Any]:
-        """
-        Scrape a URL and extract data
-        
-        Args:
-            url: The URL to scrape
-            
-        Returns:
-            Dictionary containing scraped data
-        """
-        # Validate URL to prevent SSRF
-        if not self._validate_url(url):
-            return {
-                "url": url,
-                "error": "Invalid or blocked URL",
-                "scraped_at": datetime.utcnow().isoformat(),
-                "success": False
-            }
-        
-        try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, "html.parser")
-            
-            # Extract basic information
-            title = soup.title.string if soup.title else "No title found"
-            
-            # Extract all text content
-            text_content = soup.get_text(strip=True, separator=" ")
-            
-            # Extract all links
-            links = [a.get("href") for a in soup.find_all("a", href=True)]
-            
-            return {
-                "url": url,
-                "title": title,
-                "text_content": text_content[:1000],  # Limit text content
-                "links_count": len(links),
-                "links": links[:10],  # Store first 10 links
-                "scraped_at": datetime.utcnow().isoformat(),
-                "status_code": response.status_code,
-                "success": True
-            }
-            
-        except requests.RequestException as e:
-            return {
-                "url": url,
-                "error": str(e),
-                "scraped_at": datetime.utcnow().isoformat(),
-                "success": False
-            }
-    
-    def extract_specific_data(self, url: str, selectors: Dict[str, str]) -> Dict[str, Any]:
-        """
-        Scrape a URL and extract specific data using CSS selectors
-        
-        Args:
-            url: The URL to scrape
-            selectors: Dictionary mapping field names to CSS selectors
-            
-        Returns:
-            Dictionary containing extracted data
-        """
-        # Validate URL to prevent SSRF
-        if not self._validate_url(url):
-            return {
-                "url": url,
-                "error": "Invalid or blocked URL",
-                "scraped_at": datetime.utcnow().isoformat(),
-                "success": False
-            }
-        
-        try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, "html.parser")
-            
-            extracted_data = {}
-            for field_name, selector in selectors.items():
-                elements = soup.select(selector)
-                if elements:
-                    extracted_data[field_name] = [elem.get_text(strip=True) for elem in elements]
-                else:
-                    extracted_data[field_name] = []
-            
-            return {
-                "url": url,
-                "data": extracted_data,
-                "scraped_at": datetime.utcnow().isoformat(),
-                "success": True
-            }
-            
-        except requests.RequestException as e:
-            return {
-                "url": url,
-                "error": str(e),
-                "scraped_at": datetime.utcnow().isoformat(),
-                "success": False
-            }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e), "data": []}
