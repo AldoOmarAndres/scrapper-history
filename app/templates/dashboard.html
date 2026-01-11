@@ -28,8 +28,7 @@
 
         async function fetchData() {
             try {
-                // Llamamos a tu API
-                const response = await fetch('/test-scraping');
+                const response = await fetch('/history'); 
                 const result = await response.json();
 
                 if (result.status !== 'success') {
@@ -39,31 +38,27 @@
 
                 allData = result.data;
 
-                // Actualizar opciones de filtro de plazo y setear el valor por defecto si es necesario
                 const plazoSeleccionado = updatePlazoFilter(allData);
 
-                // Obtener el plazo seleccionado
                 const select = document.getElementById('plazo-filter');
                 let selectedPlazo = select.value;
-                // Si no hay valor seleccionado (primera carga), usar el primer plazo
                 if (!selectedPlazo && plazoSeleccionado) {
                     selectedPlazo = plazoSeleccionado;
                     select.value = plazoSeleccionado;
                 }
 
-                // Filtrar los datos por plazo seleccionado
                 let filteredData = allData.filter(item => item.plazo === selectedPlazo);
 
-                // Preparamos los arrays para Plotly
+                // Datos para Plotly
                 const dates = filteredData.map(item => item.fecha_hora_web);
                 const rates = filteredData.map(item => item.tasa_tomadora);
-                const plazos = filteredData.map(item => item.plazo); // Para el tooltip
+                const plazos = filteredData.map(item => item.plazo);
 
-                // Configuración del trazo
+                // Configuración del grafico
                 const trace = {
                     x: dates,
                     y: rates,
-                    text: plazos, // Info extra al pasar el mouse
+                    text: plazos,
                     type: 'scatter',
                     mode: 'lines+markers',
                     name: 'Tasa Tomadora',
@@ -86,11 +81,8 @@
 
         function updatePlazoFilter(data) {
             const select = document.getElementById('plazo-filter');
-            // Guardar el valor actual para mantenerlo tras recarga
             const currentValue = select.value;
-            // Limpiar opciones
             select.innerHTML = '';
-            // Obtener plazos únicos
             const plazosUnicos = [...new Set(data.map(item => item.plazo))];
             plazosUnicos.forEach((plazo, idx) => {
                 const option = document.createElement('option');
@@ -98,7 +90,6 @@
                 option.textContent = plazo;
                 select.appendChild(option);
             });
-            // Restaurar selección si existe, si no, devolver el primer plazo
             if (plazosUnicos.length > 0) {
                 if (plazosUnicos.includes(currentValue)) {
                     select.value = currentValue;
@@ -111,7 +102,6 @@
             return null;
         }
 
-        // Cargar gráfica al iniciar
         fetchData();
     </script>
 </body>

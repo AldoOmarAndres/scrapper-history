@@ -2,16 +2,13 @@ import requests
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, field_validator
 from datetime import datetime
-from typing import List, Optional
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
-# --- CONFIGURACIÓN ---
 TARGET_URL = os.getenv("URL_TARGET") or ""
 
-# --- MODELO DE DATOS ---
 class RateRecord(BaseModel):
     plazo: str
     moneda: str
@@ -19,14 +16,12 @@ class RateRecord(BaseModel):
     fecha_hora_web: str
     timestamp_scraped: datetime = datetime.now()
 
-    # Validador para convertir strings monetarios ("$ 1.500,00") a float (1500.00)
+    # Validador para convertir TNA de str a float
     @field_validator("tasa_tomadora", mode='before')
     @classmethod
     def parse_float(cls, v):
         if isinstance(v, str):
-            # 1. Eliminamos símbolos de moneda y porcentajes
             clean = v.replace('$', '').replace('%', '').strip()
-            # Quitamos el punto de miles y cambiamos coma por punto decimal
             clean = clean.replace('.', '', -1).replace(',', '.', -1).strip()
             try:
                 return float(clean)
@@ -34,7 +29,6 @@ class RateRecord(BaseModel):
                 return 0.0
         return v
 
-# --- LÓGICA DE SCRAPING ---
 def run_scraping_logic() -> dict:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -42,31 +36,25 @@ def run_scraping_logic() -> dict:
     
     try:
         response = requests.get(TARGET_URL, headers=headers, timeout=10)
-        response.raise_for_status() # Lanza error si es 404 o 500
+        response.raise_for_status()
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # AJUSTA ESTE SELECTOR SEGÚN LA PÁGINA REAL
-        # Si no sabes el ID, usa 'table' para agarrar la primera tabla que encuentre
-        table = soup.select_one('table') 
-        
+        table = soup.select_one('table')         
         if not table:
             return {"status": "error", "message": "No se encontró la tabla", "data": []}
 
         extracted_data = []
         rows = table.find_all('tr')
 
-        # Asumimos que la fila 0 es el header, iteramos desde la 1
         for row in rows[1:]:
             cols = row.find_all('td')
-            # Verificamos que tenga las 7 columnas que mencionaste
             if len(cols) < 7:
                 continue
 
             try:
                 plazo=cols[0].text.strip()
                 moneda = cols[1].text.strip()
-                # Arbitrary filter decision
                 if moneda != "PESOS" or int(plazo) > 30:
                     continue
                 record = RateRecord(
