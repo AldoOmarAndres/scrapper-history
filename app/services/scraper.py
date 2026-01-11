@@ -63,7 +63,7 @@ def run_scraping_logic() -> dict:
                     tasa_tomadora=cols[5].text.strip(),
                     fecha_hora_web=cols[6].text.strip()
                 )
-                extracted_data.append(record.model_dump())
+                extracted_data.append(record.model_dump(mode="json"))
             except Exception as e:
                 print(f"Error parseando fila: {e}")
                 continue
