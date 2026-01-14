@@ -1,8 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, HTTPException, status
 from fastapi.responses import Response
+import os
+import secrets
+from dotenv import load_dotenv
 from app.services.redis_db import get_historical_data, delete_all_data
 import csv
 import io
+
+load_dotenv()
 
 
 router = APIRouter()
@@ -55,7 +60,15 @@ def export_history():
 
 
 @router.delete("/history")
-def delete_history():
-    """Elimina todo el historial guardado en Redis"""
+def delete_history(key: str):
+    """Elimina todo el historial guardado en Redis.
+    Requiere una clave para autorizar la eliminación.
+    """
+
+    env_key = os.getenv('DELETE_KEY')
+
+    if not key or not secrets.compare_digest(str(key), str(env_key)):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized: invalid key")
+
     delete_all_data()
     return {"status": "success", "message": "Historial eliminado"}
