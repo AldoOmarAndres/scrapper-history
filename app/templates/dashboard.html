@@ -12,6 +12,7 @@
         #chart { width: 100%; height: 500px; }
         .btn-refresh { display: block; margin: 20px auto; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
         .btn-refresh:hover { background: #0056b3; }
+        .btn-refresh[disabled] { opacity: 0.7; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -20,13 +21,17 @@
         <label for="plazo-filter">Filtrar por plazo:</label>
         <select id="plazo-filter" onchange="fetchData()"></select>
         <div id="chart"></div>
-        <button class="btn-refresh" onclick="fetchData()">Actualizar Datos</button>
+        <button id="btn-refresh" class="btn-refresh" onclick="fetchData()">Actualizar Datos</button>
     </div>
 
     <script>
         let allData = [];
 
         async function fetchData() {
+            const btn = document.getElementById('btn-refresh');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Cargando...';
             try {
                 const response = await fetch('/history'); 
                 const result = await response.json();
@@ -49,8 +54,11 @@
 
                 let filteredData = allData.filter(item => item.plazo === selectedPlazo);
 
-                // Datos para Plotly
-                const dates = filteredData.map(item => item.fecha_hora_web);
+                // Ordenar por timestamp_registro asc para mostrar evolución hacia la derecha
+                filteredData.sort((a, b) => new Date(a.timestamp_registro) - new Date(b.timestamp_registro));
+
+                // Datos para Plotly (mostrar solo la hora en el eje X)
+                const dates = filteredData.map(item => item.hora || new Date(item.timestamp_registro).toLocaleTimeString());
                 const rates = filteredData.map(item => item.tasa_tomadora);
                 const plazos = filteredData.map(item => item.plazo);
 
@@ -67,7 +75,7 @@
 
                 const layout = {
                     title: 'Histórico de Tasas',
-                    xaxis: { title: 'Fecha / Hora' },
+                    xaxis: { title: 'Hora' },
                     yaxis: { title: 'Tasa (%)' }
                 };
 
@@ -76,6 +84,9 @@
             } catch (error) {
                 console.error('Error:', error);
                 alert("Error de conexión con el backend.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
         }
 
@@ -84,6 +95,8 @@
             const currentValue = select.value;
             select.innerHTML = '';
             const plazosUnicos = [...new Set(data.map(item => item.plazo))];
+            
+            plazosUnicos.sort((a, b) => parseInt(a) - parseInt(b));
             plazosUnicos.forEach((plazo, idx) => {
                 const option = document.createElement('option');
                 option.value = plazo;

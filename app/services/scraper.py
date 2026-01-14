@@ -11,10 +11,9 @@ TARGET_URL = os.getenv("URL_TARGET") or ""
 
 class RateRecord(BaseModel):
     plazo: str
-    moneda: str
     tasa_tomadora: float
     fecha_hora_web: str
-    timestamp_scraped: datetime = datetime.now()
+    timestamp_scraped: datetime | None = None
 
     # Validador para convertir TNA de str a float
     @field_validator("tasa_tomadora", mode='before')
@@ -57,16 +56,35 @@ def run_scraping_logic() -> dict:
                 moneda = cols[1].text.strip()
                 if moneda != "PESOS" or int(plazo) > 30:
                     continue
+                
                 record = RateRecord(
                     plazo=plazo,
-                    moneda=moneda,
                     tasa_tomadora=cols[5].text.strip(),
-                    fecha_hora_web=cols[6].text.strip()
+                    fecha_hora_web=cols[6].text.strip(),
+                    timestamp_scraped=datetime.now()
                 )
-                extracted_data.append(record.model_dump(mode="json"))
+
+                rd = record.model_dump(mode="json")
+                try:
+                    ts = rd.get('timestamp_scraped')
+                    if ts:
+                        # timestamp_scraped is ISO string when dumped
+                        dt = datetime.fromisoformat(ts)
+                        rd['hora'] = dt.strftime('%H:%M:%S')
+                    else:
+                        rd['hora'] = ''
+                except Exception:
+                    rd['hora'] = ''
+
+                extracted_data.append(rd)
             except Exception as e:
                 print(f"Error parseando fila: {e}")
                 continue
+
+        try:
+            extracted_data.sort(key=lambda x: datetime.fromisoformat(x.get('timestamp_scraped') or datetime.min.isoformat()))
+        except Exception:
+            pass
 
         return {
             "status": "success",

@@ -5,7 +5,7 @@ from typing import List
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
-# Conexión al Redis
+# Conexión a Redis
 try:
     r = redis.from_url(REDIS_URL, decode_responses=True)
 except Exception as e:
@@ -18,9 +18,7 @@ def save_scraped_data(data: dict):
     """Guarda el resultado del scraper en Redis"""
     if not r: return
     
-    import datetime
     payload = {
-        "saved_at": datetime.datetime.now().isoformat(),
         "content": data
     }
     
@@ -33,5 +31,14 @@ def get_historical_data() -> List[dict]:
     if not r: return []
     
     raw_list = r.lrange(REDIS_KEY, 0, -1)
-    
-    return [json.loads(item) for item in raw_list]
+    try:
+        ordered = raw_list[::-1]
+        return [json.loads(item) for item in ordered]
+    except Exception:
+        return [json.loads(item) for item in raw_list]
+
+
+def delete_all_data():
+    """Elimina todo el historial guardado en Redis"""
+    if not r: return
+    r.delete(REDIS_KEY)
