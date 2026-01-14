@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import Response
 import os
 import secrets
@@ -21,7 +21,6 @@ def get_history_endpoint():
     
     for entry in history:
         for row in entry['content']:
-            row['timestamp_registro'] = entry['saved_at']
             flat_data.append(row)
             
     return {
@@ -39,11 +38,10 @@ def export_history():
     flat_data = []
     for entry in history:
         for row in entry['content']:
-            row['timestamp_registro'] = entry['saved_at']
             flat_data.append(row)
 
     # Definir columnas en orden deseado
-    fieldnames = ['plazo', 'tasa_tomadora', 'fecha_hora_web', 'timestamp_scraped', 'hora', 'timestamp_registro']
+    fieldnames = ['plazo', 'tasa_tomadora', 'fecha_hora_web', 'timestamp_scraped', 'hora']
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
