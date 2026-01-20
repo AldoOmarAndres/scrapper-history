@@ -28,22 +28,22 @@ async def lifespan(app: FastAPI):
     
     # CONFIGURACIÓN DEL HORARIO (10:30 a 17:00 Argentina)
 
-    # Regla para horario de 10:30 a 10:55
+    # Regla para horario de 10:30 a 10:58
     scheduler.add_job(
         scheduled_scraping_job,
         trigger=CronTrigger(
             hour=10, 
-            minute='30-59/5', 
+            minute='30-59/2', 
             timezone=ARG_TIMEZONE
         )
     )
 
-    # Regla para horario de 11:00 a 16:55 (cada 5 min para las horas completas)
+    # Regla para horario de 11:00 a 16:58
     scheduler.add_job(
         scheduled_scraping_job,
         trigger=CronTrigger(
             hour='11-16', 
-            minute='*/5', 
+            minute='*/2', 
             timezone=ARG_TIMEZONE
         )
     )

@@ -33,7 +33,7 @@
             btn.disabled = true;
             btn.textContent = 'Cargando...';
             try {
-                const response = await fetch('/history'); 
+                const response = await fetch('/today'); 
                 const result = await response.json();
 
                 if (result.status !== 'success') {
@@ -54,11 +54,11 @@
 
                 let filteredData = allData.filter(item => item.plazo === selectedPlazo);
 
-                // Ordenar por timestamp_registro asc para mostrar evolución hacia la derecha
-                filteredData.sort((a, b) => new Date(a.timestamp_registro) - new Date(b.timestamp_registro));
+                // Ordenar por fecha asc 
+                filteredData.sort((a, b) => new Date(a.fecha_hora_web) - new Date(b.fecha_hora_web));
 
-                // Datos para Plotly (mostrar solo la hora en el eje X)
-                const dates = filteredData.map(item => item.hora || new Date(item.timestamp_registro).toLocaleTimeString());
+                // Datos para Plotly
+                const dates = filteredData.map(item => new Date(item.fecha_hora_web).toLocaleTimeString());
                 const rates = filteredData.map(item => item.tasa_tomadora);
                 const plazos = filteredData.map(item => item.plazo);
 

@@ -3,7 +3,7 @@ from fastapi.responses import Response
 import os
 import secrets
 from dotenv import load_dotenv
-from app.services.redis_db import get_historical_data, delete_all_data
+from app.services.redis_db import get_historical_data, delete_all_data, get_today_data
 import csv
 import io
 
@@ -11,6 +11,30 @@ load_dotenv()
 
 
 router = APIRouter()
+
+
+@router.head("/")
+def health_check():
+    """Endpoint HEAD para comprobar si el servicio está activo.
+    Responde con 200 OK y sin cuerpo cuando el servicio está disponible.
+    """
+    return Response(status_code=status.HTTP_200_OK)
+
+@router.get("/today")
+def get_today_data_endpoint():
+    """Devuelve la informacion almacenada en Redis del dia actual"""
+    history = get_today_data()
+
+    flat_data = []
+    
+    for entry in history:
+        for row in entry['content']:
+            flat_data.append(row)
+            
+    return {
+        "status": "success",
+        "data": flat_data
+    }
 
 @router.get("/history")
 def get_history_endpoint():
@@ -25,7 +49,6 @@ def get_history_endpoint():
             
     return {
         "status": "success",
-        "count": len(flat_data),
         "data": flat_data
     }
 

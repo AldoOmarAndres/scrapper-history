@@ -12,8 +12,7 @@ TARGET_URL = os.getenv("URL_TARGET") or ""
 class RateRecord(BaseModel):
     plazo: str
     tasa_tomadora: float
-    fecha_hora_web: str
-    timestamp_scraped: datetime | None = None
+    fecha_hora_web: datetime
 
     # Validador para convertir TNA de str a float
     @field_validator("tasa_tomadora", mode='before')
@@ -52,37 +51,31 @@ def run_scraping_logic() -> dict:
                 continue
 
             try:
-                plazo=cols[0].text.strip()
+                plazo = cols[0].text.strip()
                 moneda = cols[1].text.strip()
                 if moneda != "PESOS" or int(plazo) > 30:
+                    continue
+
+                # string date to timestamp
+                try:
+                    fecha_dt = datetime.strptime(cols[6].text.strip(), "%d/%m/%Y %H:%M:%S")
+                except ValueError:
                     continue
                 
                 record = RateRecord(
                     plazo=plazo,
                     tasa_tomadora=cols[5].text.strip(),
-                    fecha_hora_web=cols[6].text.strip(),
-                    timestamp_scraped=datetime.now()
+                    fecha_hora_web=fecha_dt,
                 )
 
                 rd = record.model_dump(mode="json")
-                try:
-                    ts = rd.get('timestamp_scraped')
-                    if ts:
-                        # timestamp_scraped is ISO string when dumped
-                        dt = datetime.fromisoformat(ts)
-                        rd['hora'] = dt.strftime('%H:%M:%S')
-                    else:
-                        rd['hora'] = ''
-                except Exception:
-                    rd['hora'] = ''
-
                 extracted_data.append(rd)
             except Exception as e:
                 print(f"Error parseando fila: {e}")
                 continue
 
         try:
-            extracted_data.sort(key=lambda x: datetime.fromisoformat(x.get('timestamp_scraped') or datetime.min.isoformat()))
+            extracted_data.sort(key=lambda x: datetime.fromisoformat(x.get('fecha_hora_web') or datetime.min.isoformat()))
         except Exception:
             pass
 
