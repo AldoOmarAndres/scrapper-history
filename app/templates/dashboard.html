@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolución de Tasas</title>
+    <title>Monitor de Tasas</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
@@ -24,7 +24,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Evolución Tasa Tomadora</h1>
+        <h1>Monitor Tasa Tomadora</h1>
         <label for="plazo-filter">Filtrar por plazo:</label>
         <select id="plazo-filter" onchange="fetchData()"></select>
         
@@ -32,9 +32,9 @@
             <h2>Estadísticas del Día - Período <span id="periodo-label"></span></h2>
             <div class="stat-row">
                 <div class="stat-item">
-                    <h3>1ª Tasa del Día</h3>
-                    <div class="value" id="first-rate">-</div>
-                    <div class="time" id="first-time">-</div>
+                    <h3>Tasa actual</h3>
+                    <div class="value" id="current-rate">-</div>
+                    <div class="time" id="current-time">-</div>
                 </div>
                 <div class="stat-item">
                     <h3>Tasa Mayor</h3>
@@ -53,6 +53,10 @@
         <button id="btn-refresh" class="btn-refresh" onclick="fetchData()">Actualizar Datos</button>
     </div>
 
+    <footer style="text-align:center; margin-top:20px; color:#666;">
+        <small>Repositorio: <a href="https://github.com/AldoOmarAndres/scrapper-history" target="_blank" rel="noopener noreferrer">GitHub - scrapper-history</a></small>
+    </footer>
+
     <script>
         let allData = [];
 
@@ -62,8 +66,8 @@
 
         function updateStats(filteredData) {
             if (filteredData.length === 0) {
-                document.getElementById('first-rate').textContent = '-';
-                document.getElementById('first-time').textContent = '-';
+                document.getElementById('current-rate').textContent = '-';
+                document.getElementById('current-time').textContent = '-';
                 document.getElementById('max-rate').textContent = '-';
                 document.getElementById('max-time').textContent = '-';
                 document.getElementById('min-rate').textContent = '-';
@@ -71,17 +75,17 @@
                 return;
             }
 
-            // Ordenar por fecha para obtener la 1ª tasa del día
+            // Ordenar por fecha para obtener la tasa actual
             const sortedByTime = [...filteredData].sort((a, b) => new Date(a.fecha_hora_web) - new Date(b.fecha_hora_web));
-            const firstEntry = sortedByTime[0];
+            const currentEntry = sortedByTime[-1];
 
             // Encontrar máximo y mínimo
             const maxEntry = filteredData.reduce((max, item) => item.tasa_tomadora > max.tasa_tomadora ? item : max);
             const minEntry = filteredData.reduce((min, item) => item.tasa_tomadora < min.tasa_tomadora ? item : min);
 
-            // Actualizar 1ª tasa del día
-            document.getElementById('first-rate').textContent = firstEntry.tasa_tomadora.toFixed(2);
-            document.getElementById('first-time').textContent = formatTimeFromDate(firstEntry.fecha_hora_web);
+            // Actualizar tasa actual
+            document.getElementById('current-rate').textContent = currentEntry.tasa_tomadora.toFixed(2);
+            document.getElementById('current-time').textContent = formatTimeFromDate(currentEntry.fecha_hora_web);
 
             // Actualizar máximo
             document.getElementById('max-rate').textContent = maxEntry.tasa_tomadora.toFixed(2);
