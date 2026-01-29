@@ -77,7 +77,7 @@
 
             // Ordenar por fecha para obtener la tasa actual
             const sortedByTime = [...filteredData].sort((a, b) => new Date(a.fecha_hora_web) - new Date(b.fecha_hora_web));
-            const currentEntry = sortedByTime[-1];
+            const currentEntry = sortedByTime[sortedByTime.length-1];
 
             // Encontrar máximo y mínimo
             const maxEntry = filteredData.reduce((max, item) => item.tasa_tomadora > max.tasa_tomadora ? item : max);
