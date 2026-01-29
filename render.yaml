@@ -1,0 +1,33 @@
+version: "1"
+projects:
+- name: Cauciones
+  environments:
+  - name: Production
+    services:
+    - type: web
+      name: scrapper-history
+      runtime: python
+      repo: https://github.com/AldoOmarAndres/scrapper-history
+      plan: free
+      envVars:
+      - key: DELETE_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        sync: false
+      - key: URL_TARGET
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: scraper-redis-db
+          type: keyvalue
+          property: connectionString
+      region: virginia
+      buildCommand: pip install -r requirements.txt
+      startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      autoDeployTrigger: commit
+    - type: keyvalue
+      name: scraper-redis-db
+      plan: free
+      region: virginia
+      maxmemoryPolicy: allkeys-lru
+      ipAllowList: []
