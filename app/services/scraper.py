@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, field_validator
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 import os
 
@@ -12,7 +13,7 @@ TARGET_URL = os.getenv("URL_TARGET") or ""
 class RateRecord(BaseModel):
     plazo: str
     tasa_tomadora: float
-    fecha_hora_web: datetime
+    fecha_hora_web: str
 
     # Validador para convertir TNA de str a float
     @field_validator("tasa_tomadora", mode='before')
@@ -56,16 +57,13 @@ def run_scraping_logic() -> dict:
                 if moneda != "PESOS" or int(plazo) > 30:
                     continue
 
-                # string date to timestamp
-                try:
-                    fecha_dt = datetime.strptime(cols[6].text.strip(), "%d/%m/%Y %H:%M:%S")
-                except ValueError:
-                    continue
-                
+                # fecha autogenerada en horario de Argentina (formato dd/mm/YYYY HH:MM:SS)
+                fecha_str = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).strftime("%d/%m/%Y %H:%M:%S")
+
                 record = RateRecord(
                     plazo=plazo,
                     tasa_tomadora=cols[5].text.strip(),
-                    fecha_hora_web=fecha_dt,
+                    fecha_hora_web=fecha_str,
                 )
 
                 rd = record.model_dump(mode="json")
@@ -75,7 +73,7 @@ def run_scraping_logic() -> dict:
                 continue
 
         try:
-            extracted_data.sort(key=lambda x: datetime.fromisoformat(x.get('fecha_hora_web') or datetime.min.isoformat()))
+            extracted_data.sort(key=lambda x: datetime.strptime(x.get('fecha_hora_web') or "01/01/1900 00:00:00", "%d/%m/%Y %H:%M:%S"))
         except Exception:
             pass
 
